@@ -47,4 +47,13 @@ public class UserServiceImpl implements UserService{
         this.isSignedIn = false;
         return true;
     }
+
+    @Override
+    public void postBudget(int budget) {
+        User currentUser = userRepository.findById(this.currentUserId).get();
+        currentUser.setBudget(budget);
+        userRepository.save(currentUser);
+
+
+    }
 }

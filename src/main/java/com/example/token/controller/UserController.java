@@ -30,6 +30,10 @@ public class UserController {
             userService.signOut();
             return  ResponseEntity.ok("Signed out");
         }
-    }
-
+        @PostMapping("${user.post-budget-url}")
+        public ResponseEntity<String> addUserBudget(@RequestBody int budget){
+            userService.postBudget(budget);
+            return ResponseEntity.ok("Budget added successfully"); }
 }
+
+
