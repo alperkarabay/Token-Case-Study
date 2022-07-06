@@ -5,7 +5,7 @@ user:
  validation-url: /login
  sign-out-url: /signOut
  post-budget-url: /budget
-log:
- base-url: /api
- get-url: /logs
+city:
+ base-url : /api
+ get-url: /optimalPlans
 
