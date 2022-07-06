@@ -6,6 +6,7 @@ import com.example.token.repo.UserRepository;
 import com.example.token.service.CityServiceImpl;
 import com.example.token.service.UserServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -29,17 +30,11 @@ public class CityConroller {
 
 
     @GetMapping("${city.get-url}")
-    public ResponseEntity<TripPlan[]> getOptimalTripPlans(@RequestBody Map<String,Integer> preferedCities){
+    public ResponseEntity getOptimalTripPlans(@RequestBody Map<String,Integer> preferedCities){
+        if(!userService.isUserSignedIn())
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You have to sign in first");
         int budget = userRepository.findById(userService.getCurrentUserId()).get().getBudget();
         TripPlan[] optimalTripPlans = cityService.getOptimalTripPlans(preferedCities,budget);
-       /* Map<Integer, ArrayList<Integer>> returnResult;
-        returnResult = cityService.findBestCombination(new ArrayList<>(preferedCities.values()),budget);
-        Iterator it = returnResult.entrySet().iterator();
-        while (it.hasNext()) {
-            Map.Entry pair = (Map.Entry)it.next();
-            System.out.println("THE LESSER REMAINING: "+pair.getKey() + ", THE COMBINATION TO ACHIVE THIS: " + pair.getValue());
-            it.remove(); // avoid concurrent modification exception
-        }*/
         return ResponseEntity.ok().body(optimalTripPlans);
     }
 }

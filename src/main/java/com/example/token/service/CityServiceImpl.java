@@ -32,80 +32,6 @@ public class CityServiceImpl implements CityService{
     public List<City> getAllCities(){
         return cityRepository.findAll();
     }
-    @Override
-    public  Map<Integer, ArrayList<Integer>> handleAllSumPossibilities(ArrayList<Integer> cityList, int budget, ArrayList<Integer> combination, Map<Integer, ArrayList<Integer>> qualifyItemsCombination) {
-
-        System.out.println("COMBINATION FOR TEST: "+combination);
-
-        int sum = 0;
-        Integer remain=null;
-
-
-        for (int x: combination){ sum += x;};
-
-        if (sum <= budget && sum != 0){
-            remain=(budget - sum);
-
-            qualifyItemsCombination.put(remain,combination);
-            System.out.println("ADD COMBINATION TO MAP: "+combination+"  CURRENT QUALIFIED COMBINATION: "+qualifyItemsCombination);
-        }else{
-            System.out.println("IGNORE COMBINATION: "+combination+"  NOT QUALIFY, THE COMBINATION IS EXCEEDED THE BALANCE");
-        }
-        System.out.println("_____________________________");
-
-
-        for(int i=0;i<cityList.size();i++) {
-            ArrayList<Integer> remainingItems = new ArrayList<Integer>();
-
-            int pointingItem = cityList.get(i);
-            for (int j=i+1; j<cityList.size();j++) remainingItems.add(cityList.get(j));
-
-            ArrayList<Integer> combinationRecord = new ArrayList<Integer>(combination);
-
-            combinationRecord.add(pointingItem);
-
-            Map<Integer, ArrayList<Integer>> retrievedItemsCombination = handleAllSumPossibilities( remainingItems, budget, combinationRecord, qualifyItemsCombination);
-            qualifyItemsCombination = retrievedItemsCombination;
-
-        }
-        return qualifyItemsCombination;
-    }
-
-
-    @Override
-    public  Map<Integer, ArrayList<Integer>> findBestCombination(ArrayList<Integer> cityList, int budget) {
-
-        Map<Integer, ArrayList<Integer>> qualifyItemsCombination;
-        qualifyItemsCombination = handleAllSumPossibilities(cityList,budget,new ArrayList<Integer>(),new HashMap<>());
-
-        System.out.println("THE FINAL QUALIFIED COMBINATION: "+qualifyItemsCombination);
-
-        //sort the key (remaining budget)
-        List<Map.Entry< Integer, ArrayList<Integer>>> qualifyItemsCombinationList = new ArrayList<>(qualifyItemsCombination.entrySet());
-        qualifyItemsCombinationList.sort(Map.Entry.comparingByKey());
-
-        //place the sort result
-        Map<Integer, ArrayList<Integer>> sortedResult = new LinkedHashMap<>();
-        for (Map.Entry<Integer, ArrayList<Integer>> entry : qualifyItemsCombinationList) {
-            sortedResult.put(entry.getKey(), entry.getValue());
-        }
-        System.out.println("QUALIFIED COMBINATION AFTER SORTED: "+sortedResult);
-
-        //iterate to get the first combination = the combination with lesser remaining.
-        Map.Entry<Integer, ArrayList<Integer>> entry = sortedResult.entrySet().iterator().next();
-        Integer getMapKey = entry.getKey();
-        ArrayList<Integer> getMapValue=entry.getValue();
-
-        //remove all the combination that contains the remaining(key)
-        //different to the lesser remaining
-        //the reason of doing this is to filter the combinations and ensure the map only left the combinations with the lesser remaining
-        //since it might contains more than one combination are having the lesser remaining
-        sortedResult.entrySet().removeIf(key -> key.getKey() != getMapKey);
-        System.out.println("THE COMBINATION WITH LESSER BALANCE: "+sortedResult);
-
-        return sortedResult;
-    }
-
 
     @Override
     public TripPlan[] getOptimalTripPlans(Map<String, Integer> preferedCities, int budget) {
@@ -116,14 +42,16 @@ public class CityServiceImpl implements CityService{
         TripPlan[] optimalTripPlans = new TripPlan[3];
         List<Trip> currentTrip = new ArrayList<>();
         for(int i =0 ; i<3; i++) {
+            remainingBudget.set(budget);
+            tempRemainingBudget.set(remainingBudget.get());
             while (tempRemainingBudget.get() >= findMinPrice(preferedCities)) {
                 int finalI = i;
                 preferedCities.forEach((city, price) -> {
                     tempRemainingBudget.addAndGet(-price);
                     if (tempRemainingBudget.get() >= 0) {
-                        List<String> photos;
+                        List<String> photos = new ArrayList<>();
                         try {
-                            photos = photos();
+                            photos = photos(city);
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         } catch (JSONException e) {
@@ -132,7 +60,23 @@ public class CityServiceImpl implements CityService{
                         if (containsName(currentTrip, city)) {
                             Trip existingTrip = currentTrip.stream().filter(o -> o.getCityName().equals(city)).findFirst().get();
                             currentTrip.stream().filter(o -> o.getCityName().equals(city)).findFirst().get().setDay(existingTrip.getDay() + 1);
-                        } else currentTrip.add(new Trip(city, 1, photos));
+                        } else{
+                            if(finalI == 0)
+                                currentTrip.add(new Trip(city, 1, photos));
+                            if(finalI==1){
+                                int day = remainingBudget.intValue()/price;
+                                currentTrip.add(new Trip(city, day, photos));
+                                remainingBudget.addAndGet(-(day-1)*price);
+                            }
+                            if(finalI==2){
+                                if(price  != findMaxPrice(preferedCities)){
+                                    int day = remainingBudget.intValue()/price;
+                                    currentTrip.add(new Trip(city, day/2,photos));
+                                    remainingBudget.addAndGet(-(day/2-1)*price);}
+                                else remainingBudget.addAndGet(price);
+                            }
+
+                        }
                         remainingBudget.addAndGet(-price);
                     }
                     tempRemainingBudget.set(remainingBudget.get());
@@ -140,8 +84,15 @@ public class CityServiceImpl implements CityService{
             }
             tempRemainingBudget.set(remainingBudget.get());
 
-            TripPlan tripPlan = new TripPlan(currentTrip);
+            TripPlan tripPlan = new TripPlan();
+            List<Trip> temp = new ArrayList<>();
+            currentTrip.forEach(e -> {
+                temp.add(e);
+            });
+            tripPlan.setTripList(temp);
             optimalTripPlans[i] = tripPlan;
+            currentTrip.clear();
+
 
         }
         return optimalTripPlans;
@@ -164,27 +115,44 @@ public class CityServiceImpl implements CityService{
         });
         return max.intValue();
     }
-    public List<String> photos() throws IOException, JSONException {
+    public List<String> photos(String cityName) throws IOException, JSONException {
         List<String> photoUrls = new ArrayList<>();
-        // Create a neat value object to hold the URL
-        URL url = new URL("https://api.pexels.com/v1/photos/2014422");
-
+        Map<String,List<String>> urls = setUrls();
+        for(int i=0; i<3; i++) {
+            List<String> usedUrls = urls.get(cityName.toLowerCase());
+            // Create a neat value object to hold the URL
+            URL url = new URL("https://api.pexels.com/v1/photos/" + usedUrls.get(i));
 // Open a connection(?) on the URL(??) and cast the response(???)
-        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
 
 // Now it's "open", we can set the request method, headers etc.
-        connection.setRequestProperty("Authorization", "563492ad6f9170000100000148bd55a88b0f4544b98bf09c9f5a05c8");
+            connection.setRequestProperty("Authorization", "563492ad6f9170000100000148bd55a88b0f4544b98bf09c9f5a05c8");
 
 // This line makes the request
-        InputStream responseStream = connection.getInputStream();
-        ObjectMapper mapper = new ObjectMapper();
-        Map<String, Object> jsonMap = mapper.readValue(responseStream, Map.class);
+            InputStream responseStream = connection.getInputStream();
+            ObjectMapper mapper = new ObjectMapper();
+            Map<String, Object> jsonMap = mapper.readValue(responseStream, Map.class);
 // Manually converting the response body InputStream to APOD using Jackson
-        photoUrls.add(jsonMap.get("url").toString());
-
+            photoUrls.add(jsonMap.get("url").toString());
+        }
         return photoUrls;
     }
+    Map<String,List<String>> setUrls(){
+        Map<String,List<String>> urls = new HashMap<String, List<String>>() {};
+        List<String> urlList = new ArrayList<>();
+        urls.put("istanbul" , Arrays.asList("1549326", "11734760", "45189"));
+        urls.put("paris" , Arrays.asList("699466", "10410200", "2574631"));
+        urls.put("rome" , Arrays.asList("753639", "1797161", "2064827"));
+        urls.put("london" , Arrays.asList("460672", "672532", "427679"));
+        urls.put("barcelona" , Arrays.asList("1388030", "819764", "1874675"));
+        urls.put("madrid" , Arrays.asList("670261", "930595", "3254729"));
+        urls.put("plague" , Arrays.asList("126292", "1269805", "753337"));
+        urls.put("brussels" , Arrays.asList("1595085", "2587789", "1553309"));
+        urls.put("budapest" , Arrays.asList("732057", "2350351", "696288"));
+        return urls;
 
+
+    }
 
 
 }
