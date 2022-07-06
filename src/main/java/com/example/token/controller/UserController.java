@@ -3,6 +3,7 @@ package com.example.token.controller;
 import com.example.token.entity.User;
 import com.example.token.service.UserServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -32,6 +33,8 @@ public class UserController {
         }
         @PostMapping("${user.post-budget-url}")
         public ResponseEntity<String> addUserBudget(@RequestBody int budget){
+            if(!userService.isUserSignedIn())
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You have to sign in first");
             userService.postBudget(budget);
             return ResponseEntity.ok("Budget added successfully"); }
 }

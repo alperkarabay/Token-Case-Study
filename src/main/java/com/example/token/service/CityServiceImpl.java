@@ -35,7 +35,6 @@ public class CityServiceImpl implements CityService{
 
     @Override
     public TripPlan[] getOptimalTripPlans(Map<String, Integer> preferedCities, int budget) {
-        List<City> allCities = getAllCities();
 
         AtomicInteger remainingBudget = new AtomicInteger(budget);
         AtomicInteger tempRemainingBudget = new AtomicInteger(remainingBudget.get());

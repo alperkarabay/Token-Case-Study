@@ -2,6 +2,7 @@ package com.example.token.service;
 
 import com.example.token.entity.User;
 import com.example.token.repo.UserRepository;
+import lombok.Setter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -11,6 +12,7 @@ public class UserServiceImpl implements UserService{
     @Autowired
     UserRepository userRepository;
     private boolean isSignedIn;
+    @Setter
     private Long currentUserId;
     @Override
     public boolean isUserSignedIn(){
